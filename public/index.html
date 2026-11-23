@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DesignLens – Website Accessibility Analyzer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+
+<!-- ══════ SKIP LINK ══════ -->
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<!-- ══════ SIDEBAR ══════ -->
+<nav id="sidebar" class="sidebar" aria-label="Main navigation">
+  <div class="sidebar-brand">
+    <span class="brand-icon" aria-hidden="true"><i class="bi bi-eye-fill"></i></span>
+    <span class="brand-name">Design<span class="brand-accent">Lens</span></span>
+    <button class="sidebar-close d-lg-none" id="sidebarClose" aria-label="Close menu">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <ul class="sidebar-nav" role="list">
+    <li><a href="#" class="nav-item active" data-page="home" aria-current="page">
+      <i class="bi bi-house-fill" aria-hidden="true"></i><span>Dashboard</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="scan">
+      <i class="bi bi-search" aria-hidden="true"></i><span>Scan Website</span>
+    </a></li>
+
+    <li class="nav-section-label">Analysis Tools</li>
+    <li><a href="#" class="nav-item" data-page="issues">
+      <i class="bi bi-bug" aria-hidden="true"></i><span>Issue Explorer</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="fix">
+      <i class="bi bi-tools" aria-hidden="true"></i><span>Smart Fix Assistant</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="contrast">
+      <i class="bi bi-palette" aria-hidden="true"></i><span>Colour Contrast</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="alttext">
+      <i class="bi bi-image" aria-hidden="true"></i><span>Alt-Text Analyzer</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="keyboard">
+      <i class="bi bi-keyboard" aria-hidden="true"></i><span>Keyboard Checklist</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="headings">
+      <i class="bi bi-text-indent-left" aria-hidden="true"></i><span>Heading Structure</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="forms">
+      <i class="bi bi-input-cursor-text" aria-hidden="true"></i><span>Form Checker</span>
+    </a></li>
+
+    <li class="nav-section-label">History & Reports</li>
+    <li><a href="#" class="nav-item" data-page="history">
+      <i class="bi bi-clock-history" aria-hidden="true"></i><span>Scan History</span>
+    </a></li>
+    <li><a href="#" class="nav-item" data-page="compare">
+      <i class="bi bi-layout-split" aria-hidden="true"></i><span>Before &amp; After</span>
+    </a></li>
+
+    <li class="nav-section-label">Learn</li>
+    <li><a href="#" class="nav-item" data-page="learning">
+      <i class="bi bi-book" aria-hidden="true"></i><span>Learning Hub</span>
+    </a></li>
+  </ul>
+
+  <div class="sidebar-footer">
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+      <i class="bi bi-moon-fill" id="themeIcon" aria-hidden="true"></i>
+      <span id="themeLabel">Dark Mode</span>
+    </button>
+  </div>
+</nav>
+
+<!-- ══════ OVERLAY ══════ -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- ══════ MAIN WRAPPER ══════ -->
+<div class="main-wrapper">
+
+  <!-- Top bar -->
+  <header class="topbar" role="banner">
+    <button class="topbar-toggle d-lg-none" id="sidebarOpen" aria-label="Open menu" aria-expanded="false">
+      <i class="bi bi-list fs-4" aria-hidden="true"></i>
+    </button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-actions">
+      <button class="btn btn-sm btn-primary" data-page="scan" aria-label="Start a new scan">
+        <i class="bi bi-search me-1" aria-hidden="true"></i>New Scan
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════ PAGE CONTENT ══════ -->
+  <main id="main-content" class="page-content" tabindex="-1">
+
+    <!-- ══════════════════════════════
+         PAGE: DASHBOARD / HOME
+    ══════════════════════════════ -->
+    <div id="page-home" class="page active">
+      <div class="page-header">
+        <h1 class="page-title">Welcome to DesignLens</h1>
+        <p class="page-subtitle">Your WCAG 2.1 AA Accessibility Analyzer powered by axe-core</p>
+      </div>
+
+      <!-- Hero scan box -->
+      <div class="hero-scan-card">
+        <div class="row align-items-center g-4">
+          <div class="col-lg-7">
+            <div class="hero-badge mb-3">
+              <i class="bi bi-shield-check me-1" aria-hidden="true"></i>WCAG 2.1 AA · axe-core Engine
+            </div>
+            <h2 class="hero-heading">Scan any website for accessibility issues in seconds</h2>
+            <p class="hero-sub">Get real, actionable results — not sample data.</p>
+            <form id="heroScanForm" class="hero-form mt-3" novalidate role="search" aria-label="Quick scan">
+              <label for="heroUrlInput" class="visually-hidden">Website URL</label>
+              <div class="input-group">
+                <span class="input-group-text" aria-hidden="true"><i class="bi bi-globe2"></i></span>
+                <input type="url" id="heroUrlInput" class="form-control url-input"
+                  placeholder="https://example.com" autocomplete="url" spellcheck="false"
+                  aria-describedby="heroUrlHelp heroUrlErr" required/>
+                <button type="submit" class="btn btn-analyze" id="heroAnalyzeBtn" aria-label="Analyze website">
+                  <span class="btn-text"><i class="bi bi-search me-1" aria-hidden="true"></i>Analyze</span>
+                  <span class="btn-loading d-none" aria-live="polite">
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Scanning…
+                  </span>
+                </button>
+              </div>
+              <div id="heroUrlHelp" class="form-text mt-1">Include https:// (e.g. https://example.com)</div>
+              <div id="heroUrlErr" class="url-error mt-2 d-none" role="alert" aria-live="assertive"></div>
+            </form>
+          </div>
+          <div class="col-lg-5 d-none d-lg-block text-center">
+            <div class="hero-graphic" aria-hidden="true">
+              <i class="bi bi-eye-fill hero-eye"></i>
+              <div class="hero-rings"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Cards -->
+      <div class="row g-3 mt-2">
+        <div class="col-sm-6 col-xl-3">
+          <div class="feature-card" role="article">
+            <div class="feature-icon bg-critical"><i class="bi bi-bug-fill" aria-hidden="true"></i></div>
+            <h3 class="feature-title">Issue Explorer</h3>
+            <p class="feature-desc">Detailed breakdown of every axe-core violation with WCAG tags.</p>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <div class="feature-card" role="article">
+            <div class="feature-icon bg-primary"><i class="bi bi-tools" aria-hidden="true"></i></div>
+            <h3 class="feature-title">Smart Fix Assistant</h3>
+            <p class="feature-desc">Before/after code examples and copy-ready fix snippets.</p>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <div class="feature-card" role="article">
+            <div class="feature-icon bg-success"><i class="bi bi-palette-fill" aria-hidden="true"></i></div>
+            <h3 class="feature-title">Colour Contrast</h3>
+            <p class="feature-desc">Live AA/AAA contrast ratio checker with colour pickers.</p>
+          </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+          <div class="feature-card" role="article">
+            <div class="feature-icon bg-warning"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
+            <h3 class="feature-title">Scan History</h3>
+            <p class="feature-desc">Compare scans over time and track your improvements.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Last scan summary (shown if history exists) -->
+      <div id="lastScanSummary" class="last-scan-card mt-3 d-none">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div>
+            <span class="text-muted small">Last scan:</span>
+            <strong id="lastScanUrl" class="ms-1"></strong>
+            <span class="text-muted small ms-2" id="lastScanDate"></span>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="viewLastScanBtn">
+              <i class="bi bi-eye me-1" aria-hidden="true"></i>View Results
+            </button>
+            <button class="btn btn-sm btn-primary" id="rescanBtn">
+              <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Re-scan
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- How it Works -->
+      <div class="how-it-works mt-4">
+        <h2 class="section-title">How It Works</h2>
+        <div class="row g-3">
+          <div class="col-sm-6 col-lg-3">
+            <div class="step-card">
+              <div class="step-num">1</div>
+              <h3>Enter URL</h3>
+              <p>Paste any public website URL into the scanner.</p>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="step-card">
+              <div class="step-num">2</div>
+              <h3>Fetch &amp; Parse</h3>
+              <p>DesignLens safely loads the page and builds the DOM.</p>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="step-card">
+              <div class="step-num">3</div>
+              <h3>Run axe-core</h3>
+              <p>WCAG 2.1 AA rules are tested automatically.</p>
+            </div>
+          </div>
+          <div class="col-sm-6 col-lg-3">
+            <div class="step-card">
+              <div class="step-num">4</div>
+              <h3>Review &amp; Fix</h3>
+              <p>Read suggestions, check history, and download a report.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Limitation disclaimer -->
+      <div class="limitation-banner mt-3" role="note">
+        <i class="bi bi-info-circle-fill me-2" aria-hidden="true"></i>
+        <strong>Limitation:</strong> Automated testing identifies <em>common</em> accessibility issues but cannot
+        guarantee full WCAG compliance or certify a website as accessible. Manual testing by people with disabilities
+        is also essential. Results are a project-specific indicator, not an official WCAG certification.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: SCAN
+    ══════════════════════════════ -->
+    <div id="page-scan" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Scan Website</h1>
+        <p class="page-subtitle">Enter a public URL to run WCAG 2.1 AA accessibility checks</p>
+      </div>
+
+      <div class="scan-card">
+        <form id="scanForm" novalidate role="search" aria-label="Website scanner">
+          <label for="scanUrlInput" class="form-label fw-semibold">Website URL</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text" aria-hidden="true"><i class="bi bi-globe2"></i></span>
+            <input type="url" id="scanUrlInput" class="form-control url-input"
+              placeholder="https://example.com" autocomplete="url" spellcheck="false"
+              aria-describedby="scanUrlHelp scanUrlErr" required/>
+            <button type="submit" class="btn btn-analyze" id="scanBtn" aria-label="Start accessibility scan">
+              <span class="btn-text"><i class="bi bi-search me-1" aria-hidden="true"></i>Scan Now</span>
+              <span class="btn-loading d-none" aria-live="polite">
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Scanning…
+              </span>
+            </button>
+          </div>
+          <div id="scanUrlHelp" class="form-text">Include http:// or https:// — only public URLs are accepted</div>
+          <div id="scanUrlErr" class="url-error mt-2 d-none" role="alert" aria-live="assertive"></div>
+        </form>
+      </div>
+
+      <!-- Loading -->
+      <div id="scanLoading" class="loading-card d-none" aria-live="polite" aria-label="Scan in progress">
+        <div class="loading-spinner" aria-hidden="true">
+          <div class="spinner-ring"></div>
+          <span class="spinner-icon"><i class="bi bi-eye"></i></span>
+        </div>
+        <h2 class="loading-title mt-3">Scanning Website…</h2>
+        <p class="loading-url" id="scanLoadingUrl"></p>
+        <div class="loading-steps mt-3">
+          <div class="step active" id="ls1"><i class="bi bi-cloud-download me-1" aria-hidden="true"></i>Fetching page</div>
+          <div class="step" id="ls2"><i class="bi bi-code-slash me-1" aria-hidden="true"></i>Parsing HTML</div>
+          <div class="step" id="ls3"><i class="bi bi-search me-1" aria-hidden="true"></i>Running axe-core</div>
+          <div class="step" id="ls4"><i class="bi bi-bar-chart me-1" aria-hidden="true"></i>Building report</div>
+        </div>
+      </div>
+
+      <!-- Results Dashboard -->
+      <div id="scanResults" class="d-none mt-3">
+        <!-- Score + header -->
+        <div class="results-topbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+          <div>
+            <h2 class="results-title mb-1"><i class="bi bi-clipboard-data me-2 text-primary" aria-hidden="true"></i>Accessibility Report</h2>
+            <p class="mb-0 small"><i class="bi bi-link-45deg" aria-hidden="true"></i>
+              <a id="resultUrl" href="#" target="_blank" rel="noopener noreferrer" class="url-link"></a>
+            </p>
+            <small class="text-muted" id="resultMeta"></small>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <div class="score-ring-wrap" aria-label="Accessibility score">
+              <svg class="score-ring" viewBox="0 0 80 80" aria-hidden="true">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" stroke-width="8"/>
+                <circle id="scoreArc" cx="40" cy="40" r="34" fill="none" stroke-width="8"
+                  stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="213.6"
+                  transform="rotate(-90 40 40)"/>
+              </svg>
+              <div class="score-center">
+                <span class="score-num" id="scoreNum">–</span>
+                <span class="score-label">/ 100</span>
+              </div>
+            </div>
+            <div class="d-flex flex-column gap-1">
+              <button class="btn btn-sm btn-outline-secondary" id="newScanBtn2" aria-label="Start a new scan">
+                <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>New Scan
+              </button>
+              <button class="btn btn-sm btn-primary" id="downloadPdfBtn" aria-label="Download PDF report">
+                <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary cards -->
+        <div class="row g-3 mb-4" id="summaryCards" aria-label="Issue counts by severity">
+          <div class="col-6 col-md-3">
+            <div class="summary-card summary-total" tabindex="0">
+              <div class="summary-icon"><i class="bi bi-bug" aria-hidden="true"></i></div>
+              <div class="summary-count" id="totalCount">0</div>
+              <div class="summary-label">Total Issues</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="summary-card summary-critical" tabindex="0">
+              <div class="summary-icon"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i></div>
+              <div class="summary-count" id="criticalCount">0</div>
+              <div class="summary-label">Critical</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="summary-card summary-serious" tabindex="0">
+              <div class="summary-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></div>
+              <div class="summary-count" id="seriousCount">0</div>
+              <div class="summary-label">Serious</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="summary-card summary-moderate" tabindex="0">
+              <div class="summary-icon"><i class="bi bi-exclamation-circle" aria-hidden="true"></i></div>
+              <div class="summary-count" id="moderateCount">0</div>
+              <div class="summary-label">Moderate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart + passes -->
+        <div class="row g-4 mb-4">
+          <div class="col-md-5">
+            <div class="card-panel h-100">
+              <h3 class="panel-title">Issues by Severity</h3>
+              <div class="chart-wrapper"><canvas id="severityChart" role="img" aria-label="Doughnut chart of issues by severity"></canvas></div>
+              <div id="chartLegend" class="chart-legend" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="col-md-7">
+            <div class="card-panel h-100">
+              <h3 class="panel-title"><i class="bi bi-patch-check me-2 text-success" aria-hidden="true"></i>Scan Summary</h3>
+              <div class="row g-3 mt-1" id="passSummary"></div>
+              <div class="limitation-note mt-3">
+                <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+                Automated checks find common violations only. Manual testing is also needed for full WCAG conformance.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick nav to tools -->
+        <div class="quick-tools mb-4">
+          <h3 class="panel-title mb-2">Explore with Tools</h3>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-primary" data-page="issues"><i class="bi bi-bug me-1" aria-hidden="true"></i>Issue Explorer</button>
+            <button class="btn btn-sm btn-outline-primary" data-page="fix"><i class="bi bi-tools me-1" aria-hidden="true"></i>Fix Assistant</button>
+            <button class="btn btn-sm btn-outline-primary" data-page="alttext"><i class="bi bi-image me-1" aria-hidden="true"></i>Alt-Text</button>
+            <button class="btn btn-sm btn-outline-primary" data-page="headings"><i class="bi bi-text-indent-left me-1" aria-hidden="true"></i>Headings</button>
+            <button class="btn btn-sm btn-outline-primary" data-page="forms"><i class="bi bi-input-cursor-text me-1" aria-hidden="true"></i>Forms</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: ISSUE EXPLORER
+    ══════════════════════════════ -->
+    <div id="page-issues" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Issue Explorer</h1>
+        <p class="page-subtitle">Search, filter and sort every detected accessibility violation</p>
+      </div>
+
+      <div id="issuesNoScan" class="empty-state">
+        <i class="bi bi-search fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No scan results yet</h3>
+        <p>Run a scan first, then come back here.</p>
+        <button class="btn btn-primary" data-page="scan"><i class="bi bi-search me-1" aria-hidden="true"></i>Scan a Website</button>
+      </div>
+
+      <div id="issuesContent" class="d-none">
+        <!-- Controls -->
+        <div class="issues-controls d-flex flex-wrap gap-2 mb-3 align-items-center">
+          <div class="search-wrap flex-grow-1">
+            <label for="issueSearch" class="visually-hidden">Search issues</label>
+            <input type="search" id="issueSearch" class="form-control form-control-sm" placeholder="Search issues…" aria-label="Search issues"/>
+          </div>
+          <div class="filter-group" role="group" aria-label="Filter by severity">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="critical">Critical</button>
+            <button class="filter-btn" data-filter="serious">Serious</button>
+            <button class="filter-btn" data-filter="moderate">Moderate</button>
+            <button class="filter-btn" data-filter="minor">Minor</button>
+          </div>
+          <select id="sortSelect" class="form-select form-select-sm w-auto" aria-label="Sort issues">
+            <option value="severity-desc">Severity ↓</option>
+            <option value="severity-asc">Severity ↑</option>
+            <option value="count-desc">Count ↓</option>
+            <option value="name-asc">Name A–Z</option>
+          </select>
+        </div>
+
+        <div id="issuesResultCount" class="text-muted small mb-2" aria-live="polite"></div>
+        <div id="issuesList" aria-live="polite" aria-label="Accessibility issues"></div>
+        <div id="noFilteredIssues" class="d-none text-center text-muted py-4">
+          <i class="bi bi-funnel fs-3 d-block mb-2" aria-hidden="true"></i>No issues match your filter.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: SMART FIX ASSISTANT
+    ══════════════════════════════ -->
+    <div id="page-fix" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Smart Fix Assistant</h1>
+        <p class="page-subtitle">Plain-language explanations, before/after code examples, and copy-ready fixes</p>
+      </div>
+
+      <div id="fixNoScan" class="empty-state">
+        <i class="bi bi-tools fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No violations to fix yet</h3>
+        <p>Scan a website to get fix suggestions for each issue found.</p>
+        <button class="btn btn-primary" data-page="scan"><i class="bi bi-search me-1" aria-hidden="true"></i>Scan a Website</button>
+      </div>
+
+      <div id="fixContent" class="d-none">
+        <div id="fixList"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: COLOUR CONTRAST CHECKER
+    ══════════════════════════════ -->
+    <div id="page-contrast" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Colour Contrast Checker</h1>
+        <p class="page-subtitle">Test foreground/background contrast against WCAG AA and AAA thresholds</p>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-lg-6">
+          <div class="card-panel">
+            <h2 class="panel-title">Colour Inputs</h2>
+            <div class="mb-3">
+              <label for="fgColor" class="form-label fw-semibold">Foreground (Text) Colour</label>
+              <div class="input-group">
+                <input type="color" id="fgColorPicker" class="form-control form-control-color" value="#1e293b" aria-label="Pick foreground colour"/>
+                <input type="text" id="fgColor" class="form-control" value="#1e293b" placeholder="#000000 or rgb(0,0,0)" aria-label="Foreground colour hex or rgb"/>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="bgColor" class="form-label fw-semibold">Background Colour</label>
+              <div class="input-group">
+                <input type="color" id="bgColorPicker" class="form-control form-control-color" value="#ffffff" aria-label="Pick background colour"/>
+                <input type="text" id="bgColor" class="form-control" value="#ffffff" placeholder="#ffffff or rgb(255,255,255)" aria-label="Background colour hex or rgb"/>
+              </div>
+            </div>
+
+            <!-- Preview -->
+            <div class="contrast-preview mt-3" id="contrastPreview" aria-label="Text preview with selected colours">
+              <p class="preview-normal" id="previewNormal">Normal text — The quick brown fox jumps over the lazy dog.</p>
+              <p class="preview-large" id="previewLarge">Large text (18pt / 14pt bold)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="card-panel">
+            <h2 class="panel-title">Results</h2>
+            <div class="contrast-ratio-display" id="contrastRatioDisplay" aria-live="polite">
+              <span class="ratio-num" id="ratioNum">–</span>
+              <span class="ratio-label">: 1 contrast ratio</span>
+            </div>
+
+            <div class="wcag-results mt-3" id="wcagResults" aria-live="polite">
+              <div class="wcag-row">
+                <span class="wcag-label">Normal text — AA (4.5:1)</span>
+                <span class="wcag-badge" id="normalAA">–</span>
+              </div>
+              <div class="wcag-row">
+                <span class="wcag-label">Normal text — AAA (7:1)</span>
+                <span class="wcag-badge" id="normalAAA">–</span>
+              </div>
+              <div class="wcag-row">
+                <span class="wcag-label">Large text — AA (3:1)</span>
+                <span class="wcag-badge" id="largeAA">–</span>
+              </div>
+              <div class="wcag-row">
+                <span class="wcag-label">Large text — AAA (4.5:1)</span>
+                <span class="wcag-badge" id="largeAAA">–</span>
+              </div>
+            </div>
+
+            <div id="contrastSuggestions" class="contrast-suggestions mt-3" aria-live="polite"></div>
+
+            <div class="limitation-note mt-3">
+              <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+              These calculations apply to solid colours only. Text over images, gradients, opacity, or complex backgrounds requires additional manual review.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: ALT-TEXT ANALYZER
+    ══════════════════════════════ -->
+    <div id="page-alttext" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Alt-Text Analyzer</h1>
+        <p class="page-subtitle">Review all images found on the scanned page</p>
+      </div>
+      <div id="altNoScan" class="empty-state">
+        <i class="bi bi-image fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No scan data available</h3>
+        <button class="btn btn-primary" data-page="scan">Scan a Website</button>
+      </div>
+      <div id="altContent" class="d-none">
+        <div class="row g-3 mb-4" id="altSummaryCards"></div>
+        <div class="limitation-note mb-3">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+          <strong>Note:</strong> An empty <code>alt=""</code> is <em>correct</em> for decorative images. Only images
+          with a missing <code>alt</code> attribute are automatically flagged as errors.
+        </div>
+        <div id="altImageList"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: KEYBOARD CHECKLIST
+    ══════════════════════════════ -->
+    <div id="page-keyboard" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Keyboard Accessibility Checklist</h1>
+        <p class="page-subtitle">Manual checks — record Pass, Fail, or Not Tested for each item</p>
+      </div>
+      <div class="limitation-note mb-3">
+        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+        Results below are <strong>manually entered</strong> by you. They are not automated test results.
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="text-muted small" id="kbProgress" aria-live="polite"></div>
+        <button class="btn btn-sm btn-outline-danger" id="resetChecklist" aria-label="Reset all checklist entries">
+          <i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Reset All
+        </button>
+      </div>
+      <div id="keyboardChecklist" role="list"></div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: HEADING STRUCTURE
+    ══════════════════════════════ -->
+    <div id="page-headings" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Heading Structure Analyzer</h1>
+        <p class="page-subtitle">Visual H1–H6 outline extracted from the scanned page</p>
+      </div>
+      <div id="hdgNoScan" class="empty-state">
+        <i class="bi bi-text-indent-left fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No scan data available</h3>
+        <button class="btn btn-primary" data-page="scan">Scan a Website</button>
+      </div>
+      <div id="hdgContent" class="d-none">
+        <div class="row g-3 mb-3" id="hdgSummary"></div>
+        <div class="limitation-note mb-3">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+          Skipped heading levels are shown as review signals. They need context — not every skip is a WCAG failure.
+        </div>
+        <div class="card-panel">
+          <h2 class="panel-title">Heading Outline</h2>
+          <div id="headingOutline" class="heading-outline" role="list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: FORM CHECKER
+    ══════════════════════════════ -->
+    <div id="page-forms" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Form Accessibility Checker</h1>
+        <p class="page-subtitle">Labels, associations, accessible names, and button names</p>
+      </div>
+      <div id="formNoScan" class="empty-state">
+        <i class="bi bi-input-cursor-text fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No scan data available</h3>
+        <button class="btn btn-primary" data-page="scan">Scan a Website</button>
+      </div>
+      <div id="formContent" class="d-none">
+        <div class="row g-3 mb-3" id="formSummary"></div>
+        <div id="formIssueList"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: SCAN HISTORY
+    ══════════════════════════════ -->
+    <div id="page-history" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Scan History</h1>
+        <p class="page-subtitle">Your recent scans, stored locally in this browser</p>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <label for="historySearch" class="visually-hidden">Search history</label>
+        <input type="search" id="historySearch" class="form-control form-control-sm w-auto flex-grow-1" placeholder="Search by URL…" aria-label="Search scan history"/>
+        <button class="btn btn-sm btn-outline-danger" id="clearHistory" aria-label="Clear all scan history">
+          <i class="bi bi-trash me-1" aria-hidden="true"></i>Clear All
+        </button>
+      </div>
+      <div id="historyEmpty" class="empty-state d-none">
+        <i class="bi bi-clock-history fs-1 d-block mb-2 text-muted" aria-hidden="true"></i>
+        <h3>No scans yet</h3>
+        <p>Your scan results will appear here after you scan a website.</p>
+      </div>
+      <div id="historyList"></div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: BEFORE & AFTER
+    ══════════════════════════════ -->
+    <div id="page-compare" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Before &amp; After Comparison</h1>
+        <p class="page-subtitle">Compare two scans of the same website to track improvements</p>
+      </div>
+      <div class="card-panel mb-4">
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label for="compareA" class="form-label fw-semibold">Scan A (Before)</label>
+            <select id="compareA" class="form-select" aria-label="Select first scan to compare"></select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end justify-content-center">
+            <span class="compare-vs" aria-hidden="true">VS</span>
+          </div>
+          <div class="col-md-5">
+            <label for="compareB" class="form-label fw-semibold">Scan B (After)</label>
+            <select id="compareB" class="form-select" aria-label="Select second scan to compare"></select>
+          </div>
+        </div>
+        <button class="btn btn-primary mt-3" id="runCompareBtn" aria-label="Compare selected scans">
+          <i class="bi bi-layout-split me-1" aria-hidden="true"></i>Compare
+        </button>
+      </div>
+      <div id="compareResults" class="d-none"></div>
+      <div class="limitation-note mt-3">
+        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+        Fewer issues does not prove full accessibility. Page changes between scans may affect matching.
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════
+         PAGE: LEARNING HUB
+    ══════════════════════════════ -->
+    <div id="page-learning" class="page">
+      <div class="page-header">
+        <h1 class="page-title">Learning Hub</h1>
+        <p class="page-subtitle">Beginner-friendly lessons on web accessibility and WCAG</p>
+      </div>
+      <div id="learningHub"></div>
+    </div>
+
+  </main><!-- /main -->
+</div><!-- /main-wrapper -->
+
+<!-- ══════ FOOTER ══════ -->
+<footer class="site-footer" role="contentinfo">
+  <div class="container text-center">
+    <p class="mb-1">
+      <i class="bi bi-eye-fill me-1" aria-hidden="true"></i>
+      <strong>DesignLens</strong> – Website Accessibility Analyzer
+    </p>
+    <p class="footer-sub mb-0">
+      Built with <span aria-label="love">♥</span> using Node.js, Express &amp; axe-core ·
+      Follows WCAG 2.1 AA guidelines · Results are not a certification
+    </p>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
