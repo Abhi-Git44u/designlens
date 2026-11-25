@@ -82,12 +82,25 @@ app.post('/api/analyze', async (req, res) => {
   } catch (err) {
     console.error('[DesignLens] Analysis error:', err.message);
 
-    if (err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
-      return res.status(502).json({ error: 'Could not reach the website. Please check the URL and try again.' });
+    // If the error already has a user-facing message (set in analyzer.js), use it directly
+    if (err._userFacing) {
+      const statusCode = (err.message.includes('blocked') || err.message.includes('403') || err.message.includes('401')) ? 403
+        : (err.message.includes('rate') || err.message.includes('429')) ? 429
+        : (err.message.includes('too long') || err.message.includes('timed out')) ? 504
+        : 502;
+      return res.status(statusCode).json({ error: err.message });
     }
-    if (err.message && err.message.includes('timeout')) {
-      return res.status(504).json({ error: 'The request timed out. The website may be too slow or unavailable.' });
-    }
+
+    // Fallback error classification
+    if (err.code === 'ENOTFOUND')
+      return res.status(502).json({ error: `Could not find the website. Check the URL spelling.` });
+    if (err.code === 'ECONNREFUSED')
+      return res.status(502).json({ error: `Connection refused by the website. The server may be offline.` });
+    if (err.code === 'ETIMEDOUT' || (err.message && err.message.toLowerCase().includes('timeout')))
+      return res.status(504).json({ error: `The website took too long to respond. Try a specific sub-page URL instead of the homepage.` });
+    if (err.response && err.response.status)
+      return res.status(502).json({ error: `The website returned HTTP ${err.response.status}. It may block automated access.` });
+
     return res.status(500).json({ error: 'Analysis failed: ' + (err.message || 'Unknown error') });
   }
 });

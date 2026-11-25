@@ -251,19 +251,34 @@ function saveHistory() {
 }
 function pushHistory(scan) {
   const entry = {
-    id:       Date.now().toString(),
-    url:      scan.url,
-    scannedAt:scan.scannedAt,
-    score:    calcScore(scan),
-    totalIssues: scan.totalIssues,
-    severityCounts: scan.severityCounts,
+    id:              Date.now().toString(),
+    url:             scan.url,
+    scannedAt:       scan.scannedAt,
+    durationMs:      scan.durationMs || 0,
+    score:           calcScore(scan),
+    totalIssues:     scan.totalIssues,
+    severityCounts:  scan.severityCounts,
     totalViolations: scan.totalViolations,
-    passes:   scan.passes,
-    // Store compact data for comparison
-    issues:   (scan.issues||[]).map(i=>({id:i.id,name:i.name,severity:i.severity,affectedCount:i.affectedCount}))
+    passes:          scan.passes || 0,
+    incomplete:      scan.incomplete || 0,
+    formCount:       scan.formCount || 0,
+    headings:        (scan.headings || []).slice(0, 80),
+    images:          (scan.images || []).slice(0, 80),
+    issues: (scan.issues || []).map(i => ({
+      id:               i.id,
+      name:             i.name,
+      description:      i.description || '',
+      helpUrl:          i.helpUrl || '',
+      tags:             i.tags || [],
+      severity:         i.severity,
+      severityLabel:    i.severityLabel || i.severity,
+      affectedCount:    i.affectedCount,
+      suggestion:       i.suggestion || '',
+      affectedElements: (i.affectedElements || []).slice(0, 3)
+    }))
   };
   scanHistory.unshift(entry);
-  if (scanHistory.length > 20) scanHistory = scanHistory.slice(0,20);
+  if (scanHistory.length > 15) scanHistory = scanHistory.slice(0, 15);
   saveHistory();
 }
 
@@ -311,10 +326,18 @@ function navigateTo(pageId) {
   document.getElementById('main-content').focus();
 }
 
-// Delegate clicks on data-page buttons/links
+// Delegate clicks & keyboard activation on data-page buttons/links/cards
 document.addEventListener('click', e => {
   const target = e.target.closest('[data-page]');
   if (target) { e.preventDefault(); navigateTo(target.dataset.page); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const target = e.target.closest('[data-page]');
+  if (target && target.tagName !== 'BUTTON' && target.tagName !== 'A') {
+    e.preventDefault();
+    navigateTo(target.dataset.page);
+  }
 });
 
 /* ── Sidebar toggle ───────────────────────────────────────────── */
@@ -349,6 +372,80 @@ function applyTheme(t) {
   else             { icon.className='bi bi-moon-fill'; label.textContent='Dark Mode'; }
 }
 
+/* ── Reduced motion controller (overrides system setting) ─────── */
+const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+function isReducedMotion() {
+  const manual = localStorage.getItem('dl_reduced_motion');
+  if (manual === 'true') return true;
+  if (manual === 'false') return false;
+  return motionMedia.matches;
+}
+function applyReducedMotion(reduced, persist = true) {
+  if (persist) localStorage.setItem('dl_reduced_motion', String(reduced));
+  document.documentElement.setAttribute('data-reduced-motion', String(reduced));
+  const btn   = document.getElementById('motionToggle');
+  const icon  = document.getElementById('motionIcon');
+  const label = document.getElementById('motionLabel');
+  if (btn)   btn.setAttribute('aria-pressed', String(reduced));
+  if (icon)  icon.className = reduced ? 'bi bi-pause-circle-fill' : 'bi bi-stars';
+  if (label) label.textContent = reduced ? 'Motion: Off' : 'Motion: On';
+  if (reduced) {
+    document.querySelectorAll('.reveal-on-scroll').forEach(el => el.classList.add('is-visible'));
+  }
+}
+(function initMotion() {
+  const manual = localStorage.getItem('dl_reduced_motion');
+  if (manual !== null) applyReducedMotion(manual === 'true', false);
+  else applyReducedMotion(motionMedia.matches, false);
+  motionMedia.addEventListener('change', e => {
+    if (localStorage.getItem('dl_reduced_motion') === null) {
+      applyReducedMotion(e.matches, false);
+    }
+  });
+})();
+document.getElementById('motionToggle').addEventListener('click', () => {
+  applyReducedMotion(!isReducedMotion(), true);
+});
+
+/* ── Scroll reveal (IntersectionObserver, triggered once) ─────── */
+function initScrollReveals() {
+  const els = document.querySelectorAll('.reveal-on-scroll');
+  if (isReducedMotion() || !('IntersectionObserver' in window)) {
+    els.forEach(el => el.classList.add('is-visible'));
+    return;
+  }
+  const obs = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      el.style.willChange = 'transform, opacity';
+      el.classList.add('is-visible');
+      el.addEventListener('transitionend', () => { el.style.willChange = 'auto'; }, { once: true });
+      observer.unobserve(el);
+    });
+  }, { threshold: 0.12 });
+  els.forEach(el => obs.observe(el));
+}
+initScrollReveals();
+
+/* ── rAF Number Count-Up ──────────────────────────────────────── */
+function animateCount(el, target, duration = 550) {
+  if (!el) return;
+  const end = Number(target) || 0;
+  if (isReducedMotion() || end === 0) {
+    el.textContent = String(end);
+    return;
+  }
+  const start = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = String(Math.round(eased * end));
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
 /* ══════════════════════════════════════════════════════════════
    SCAN ENGINE
 ══════════════════════════════════════════════════════════════ */
@@ -356,16 +453,20 @@ let stepTimerId = null;
 
 function startLoadingSteps(ids) {
   const steps = ids.map(id => document.getElementById(id)).filter(Boolean);
+  const fill = document.getElementById('scanProgressFill');
+  const scales = [0.22, 0.48, 0.75, 0.92];
   steps.forEach(s => { s.className='step'; });
   if (!steps.length) return;
   steps[0].classList.add('active');
+  if (fill) fill.style.transform = `scaleX(${scales[0]})`;
   let i = 0;
-  const intervals = [1500, 2500, 4000];
+  const intervals = [1200, 2200, 3500];
   function advance() {
     if (i < steps.length-1) {
       steps[i].classList.replace('active','done');
       i++;
       steps[i].classList.add('active');
+      if (fill) fill.style.transform = `scaleX(${scales[i] || 0.92})`;
       if (i < intervals.length) stepTimerId = setTimeout(advance, intervals[i]);
     }
   }
@@ -373,6 +474,8 @@ function startLoadingSteps(ids) {
 }
 function stopLoadingSteps(ids) {
   clearTimeout(stepTimerId);
+  const fill = document.getElementById('scanProgressFill');
+  if (fill) fill.style.transform = 'scaleX(1)';
   ids.forEach(id => { const el=document.getElementById(id); if(el) el.classList.add('done'); });
 }
 function setBtn(btn, loading) {
@@ -463,8 +566,12 @@ document.getElementById('newScanBtn2').addEventListener('click', () => {
 let severityChart = null;
 
 function renderScanResults(data) {
-  document.getElementById('scanResults').classList.remove('d-none');
-  document.getElementById('scanResults').scrollIntoView({behavior:'smooth'});
+  const resultsEl = document.getElementById('scanResults');
+  resultsEl.classList.remove('d-none', 'panel-crossfade');
+  void resultsEl.offsetWidth; // restart crossfade
+  resultsEl.classList.add('panel-crossfade');
+  resultsEl.scrollIntoView({ behavior: isReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  resultsEl.focus({ preventScroll: true });
 
   // Header
   const urlEl = document.getElementById('resultUrl');
@@ -474,18 +581,18 @@ function renderScanResults(data) {
 
   // Score
   const score = calcScore(data);
-  document.getElementById('scoreNum').textContent = score;
+  animateCount(document.getElementById('scoreNum'), score, 600);
   const arc = document.getElementById('scoreArc');
   const circumference = 213.6;
   arc.style.strokeDashoffset = circumference - (score/100)*circumference;
   arc.style.stroke = scoreColor(score);
 
-  // Counts
+  // Counts (rAF count-up)
   const c = data.severityCounts||{};
-  document.getElementById('totalCount').textContent    = data.totalIssues||0;
-  document.getElementById('criticalCount').textContent = c.critical||0;
-  document.getElementById('seriousCount').textContent  = c.serious||0;
-  document.getElementById('moderateCount').textContent = c.moderate||0;
+  animateCount(document.getElementById('totalCount'), data.totalIssues||0);
+  animateCount(document.getElementById('criticalCount'), c.critical||0);
+  animateCount(document.getElementById('seriousCount'), c.serious||0);
+  animateCount(document.getElementById('moderateCount'), c.moderate||0);
 
   // Chart
   buildSeverityChart(c);
@@ -497,10 +604,48 @@ function renderScanResults(data) {
     {num:data.passes||0,          label:'Rules Passed',    color:'#16a34a'},
     {num:data.incomplete||0,      label:'Needs Review',    color:'#d97706'},
     {num:c.minor||0,              label:'Minor Issues',    color:'#2563eb'}
-  ].map(s=>`<div class="col-6"><div class="pass-stat">
-    <div class="pass-stat-num" style="color:${s.color}">${s.num}</div>
+  ].map((s,idx)=>`<div class="col-6"><div class="pass-stat stagger-item" style="--stagger-i:${idx}">
+    <div class="pass-stat-num" style="color:${s.color}" data-count="${s.num}">${s.num}</div>
     <div class="pass-stat-label">${s.label}</div>
   </div></div>`).join('');
+  ps.querySelectorAll('.pass-stat-num[data-count]').forEach(el => {
+    animateCount(el, Number(el.dataset.count), 500);
+  });
+
+  // Fast-mode banner
+  const existingBanner = document.getElementById('fastModeBanner');
+  if (existingBanner) existingBanner.remove();
+  if (data.isLargePage && data.rulesMode === 'fast') {
+    const banner = document.createElement('div');
+    banner.id = 'fastModeBanner';
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    banner.style.cssText = [
+      'margin:0.75rem 0',
+      'padding:0.65rem 1rem',
+      'border-radius:8px',
+      'background:linear-gradient(135deg,#1e3a5f 0%,#1a2e4a 100%)',
+      'border:1px solid #2563eb55',
+      'color:#93c5fd',
+      'font-size:0.84rem',
+      'display:flex',
+      'align-items:center',
+      'gap:0.5rem',
+      'line-height:1.4'
+    ].join(';');
+    const icon = document.createElement('span');
+    icon.textContent = '⚡';
+    icon.setAttribute('aria-hidden', 'true');
+    const msg = document.createElement('span');
+    msg.textContent = `Fast Mode — Page has ${data.elementCount.toLocaleString()} elements. `
+      + `20 core WCAG rules were checked (colour-contrast & ARIA attribute rules skipped for speed). `
+      + `Scan a specific sub-page for a full report.`;
+    banner.appendChild(icon);
+    banner.appendChild(msg);
+    // Insert before passSummary
+    const psParent = document.getElementById('passSummary').parentElement;
+    psParent.insertBefore(banner, document.getElementById('passSummary'));
+  }
 
   // Update home last-scan
   updateLastScanHome(data);
@@ -530,7 +675,7 @@ function buildSeverityChart(c) {
         legend:{display:false},
         tooltip:{enabled:total>0, callbacks:{label:c=>` ${c.label}: ${c.parsed}`}}
       },
-      animation:{animateScale:true}
+      animation: isReducedMotion() ? false : { animateScale: true, animateRotate: true, duration: 500 }
     }
   });
 
@@ -745,9 +890,6 @@ function generatePdf() {
    RENDER: ISSUE EXPLORER
 ══════════════════════════════════════════════════════════════ */
 function renderIssueExplorer() {
-  if (!currentScan || !allIssues.length && currentScan.totalIssues===0) {
-    if (!currentScan) { showEmpty('issues'); return; }
-  }
   if (!currentScan) { showEmpty('issues'); return; }
   document.getElementById('issuesNoScan').classList.add('d-none');
   document.getElementById('issuesContent').classList.remove('d-none');
@@ -755,11 +897,30 @@ function renderIssueExplorer() {
 }
 
 function showEmpty(page) {
-  document.getElementById(`${page}NoScan`||`issuesNoScan`).classList.remove('d-none');
-  document.getElementById(`${page}Content`||`issuesContent`).classList.add('d-none');
+  const noScanEl = document.getElementById(`${page}NoScan`);
+  const contentEl = document.getElementById(`${page}Content`);
+  if (noScanEl) noScanEl.classList.remove('d-none');
+  if (contentEl) contentEl.classList.add('d-none');
 }
 
 function applyIssueFilters() {
+  if (!currentScan) { showEmpty('issues'); return; }
+
+  const container = document.getElementById('issuesList');
+  const countEl = document.getElementById('issuesResultCount');
+  const noFilteredEl = document.getElementById('noFilteredIssues');
+
+  if (!allIssues.length) {
+    countEl.textContent = '0 violations detected';
+    noFilteredEl.classList.add('d-none');
+    container.innerHTML = `<div class="empty-state" style="border-color:#86efac">
+      <i class="bi bi-check-circle fs-1 text-success d-block mb-2" aria-hidden="true"></i>
+      <h3>No accessibility violations detected!</h3>
+      <p>axe-core found no automated WCAG 2.1 AA violations on this page.</p>
+    </div>`;
+    return;
+  }
+
   const q       = (document.getElementById('issueSearch')||{value:''}).value.toLowerCase();
   const filter  = document.querySelector('#page-issues .filter-btn.active')?.dataset.filter||'all';
   const sort    = document.getElementById('sortSelect')?.value||'severity-desc';
@@ -767,7 +928,7 @@ function applyIssueFilters() {
 
   let list = [...allIssues];
   if (filter!=='all') list = list.filter(i=>(i.severity||'minor')===filter);
-  if (q) list = list.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.description||'').toLowerCase().includes(q));
+  if (q) list = list.filter(i=>(i.name||'').toLowerCase().includes(q)||(i.description||'').toLowerCase().includes(q)||(i.id||'').toLowerCase().includes(q));
 
   list.sort((a,b) => {
     if (sort==='severity-desc') return (sevOrder[a.severity]||3)-(sevOrder[b.severity]||3);
@@ -777,22 +938,14 @@ function applyIssueFilters() {
     return 0;
   });
 
-  const countEl = document.getElementById('issuesResultCount');
   countEl.textContent = `Showing ${list.length} of ${allIssues.length} violation${allIssues.length!==1?'s':''}`;
 
-  const container = document.getElementById('issuesList');
   if (!list.length) {
     container.innerHTML='';
-    document.getElementById('noFilteredIssues').classList.remove('d-none');
+    noFilteredEl.classList.remove('d-none');
     return;
   }
-  document.getElementById('noFilteredIssues').classList.add('d-none');
-
-  if (!currentScan && allIssues.length===0) {
-    document.getElementById('issuesNoScan').classList.remove('d-none');
-    document.getElementById('issuesContent').classList.add('d-none');
-    return;
-  }
+  noFilteredEl.classList.add('d-none');
 
   container.innerHTML = list.map((issue,idx)=>buildIssueCard(issue,idx)).join('');
   attachIssueCardListeners(container);
@@ -809,15 +962,20 @@ document.querySelectorAll('#page-issues .filter-btn').forEach(btn => {
   });
 });
 
+function issueMarkKey(id) {
+  const scope = currentScan?.url || 'default';
+  return `dl_fixed_${scope}_${id}`;
+}
+
 function buildIssueCard(issue, idx) {
   const sev = (issue.severity||'minor').toLowerCase();
   const tags = (issue.tags||[]).filter(t=>t.startsWith('wcag')||t==='best-practice').slice(0,5);
   const els = (issue.affectedElements||[]).slice(0,3);
   const extra = (issue.affectedCount||0) - els.length;
-  const markedKey = `dl_fixed_${issue.id}`;
+  const markedKey = issueMarkKey(issue.id);
   const isMarked = sessionStorage.getItem(markedKey)==='1';
 
-  return `<div class="issue-card${isMarked?' opacity-50':''}" data-severity="${sev}" role="article" data-issue-id="${issue.id}">
+  return `<div class="issue-card stagger-item${isMarked?' opacity-50':''}" style="--stagger-i:${idx}" data-severity="${sev}" role="article" data-issue-id="${issue.id}">
     <div class="issue-card-header" tabindex="0" role="button" aria-expanded="false" aria-controls="ib-${idx}">
       <span class="severity-badge severity-${sev}">${esc(issue.severityLabel||sev)}</span>
       <span class="issue-title">${esc(issue.name||issue.id)}</span>
@@ -825,7 +983,7 @@ function buildIssueCard(issue, idx) {
       ${isMarked?'<span class="badge bg-success" aria-label="Marked as reviewed">✓ Reviewed</span>':''}
       <i class="bi bi-chevron-down issue-chevron" aria-hidden="true"></i>
     </div>
-    <div class="issue-card-body" id="ib-${idx}">
+    <div class="issue-card-body" id="ib-${idx}"><div class="accordion-inner">
       <p class="issue-description">${esc(issue.description)}</p>
       ${tags.length?`<div class="wcag-tags">${tags.map(t=>`<span class="wcag-tag">${esc(t)}</span>`).join('')}</div>`:''}
       <div class="fix-suggestion">
@@ -844,7 +1002,7 @@ function buildIssueCard(issue, idx) {
           ${isMarked?'✓ Marked as Reviewed':'Mark as Reviewed'}
         </button>
       </div>
-    </div>
+    </div></div>
   </div>`;
 }
 
@@ -857,7 +1015,7 @@ function attachIssueCardListeners(container) {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const id = btn.dataset.mark;
-      const key = `dl_fixed_${id}`;
+      const key = issueMarkKey(id);
       const was = sessionStorage.getItem(key)==='1';
       sessionStorage.setItem(key, was?'0':'1');
       applyIssueFilters(); // re-render
@@ -891,13 +1049,13 @@ function renderFixAssistant() {
   list.innerHTML = allIssues.map((issue,idx) => {
     const g = FIX_GUIDANCE[issue.id]||null;
     const sev = (issue.severity||'minor').toLowerCase();
-    return `<div class="fix-card" role="article">
+    return `<div class="fix-card stagger-item" style="--stagger-i:${idx}" role="article">
       <div class="fix-card-header" tabindex="0" role="button" aria-expanded="false">
         <span class="severity-badge severity-${sev}">${esc(issue.severityLabel||sev)}</span>
         <span style="font-weight:600;flex:1">${esc(issue.name||issue.id)}</span>
         <i class="bi bi-chevron-down issue-chevron" aria-hidden="true"></i>
       </div>
-      <div class="fix-card-body">
+      <div class="fix-card-body"><div class="accordion-inner">
         ${g?`
           <p class="mt-2"><strong>Why it matters:</strong> ${esc(g.why)}</p>
           <p><strong>Who is affected:</strong> ${esc(g.who)}</p>
@@ -919,7 +1077,7 @@ function renderFixAssistant() {
          <div class="fix-suggestion"><strong>Suggestion:</strong> ${esc(issue.suggestion)}</div>`}
         ${issue.helpUrl?`<a href="${esc(issue.helpUrl)}" target="_blank" rel="noopener noreferrer" class="learn-more-link mt-2 d-inline-block">
           <i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>WCAG / axe-core docs</a>`:''}
-      </div>
+      </div></div>
     </div>`;
   }).join('');
 
@@ -953,9 +1111,9 @@ function hexToRgb(hex) {
 }
 function parseColor(str) {
   str = str.trim();
-  if (str.startsWith('#')) return hexToRgb(str);
-  const m = str.match(/rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
-  if (m) return {r:+m[1],g:+m[2],b:+m[3]};
+  if (str.startsWith('#') || /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(str)) return hexToRgb(str);
+  const m = str.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+  if (m) return { r: Math.min(255,+m[1]), g: Math.min(255,+m[2]), b: Math.min(255,+m[3]) };
   return null;
 }
 function relativeLuminance({r,g,b}) {
@@ -1007,9 +1165,6 @@ function updateContrast() {
 }
 
 // Wire up contrast inputs
-['fgColor','bgColor'].forEach(id => {
-  document.getElementById(id).addEventListener('input', updateContrast);
-});
 document.getElementById('fgColorPicker').addEventListener('input', e => {
   document.getElementById('fgColor').value = e.target.value; updateContrast();
 });
@@ -1265,7 +1420,12 @@ function renderHistory() {
   document.querySelectorAll('[data-hist-view]').forEach(btn => {
     btn.addEventListener('click', () => {
       const entry = scanHistory.find(h=>h.id===btn.dataset.histView);
-      if (entry) alert(`Scan: ${entry.url}\nDate: ${fmtDate(entry.scannedAt)}\nScore: ${entry.score}/100\nTotal Issues: ${entry.totalIssues}`);
+      if (!entry) return;
+      currentScan = entry;
+      allIssues = entry.issues || [];
+      navigateTo('scan');
+      document.getElementById('scanUrlInput').value = entry.url;
+      renderScanResults(entry);
     });
   });
 }
@@ -1282,8 +1442,14 @@ function renderCompareSelects() {
   const opts = scanHistory.length
     ? scanHistory.map(h=>`<option value="${h.id}">${esc(h.url.substring(0,50))} — ${fmtDate(h.scannedAt)} (Score: ${h.score})</option>`).join('')
     : '<option disabled>No scans in history yet</option>';
-  document.getElementById('compareA').innerHTML = opts;
-  document.getElementById('compareB').innerHTML = opts;
+  const selA = document.getElementById('compareA');
+  const selB = document.getElementById('compareB');
+  selA.innerHTML = opts;
+  selB.innerHTML = opts;
+  if (scanHistory.length >= 2) {
+    selA.value = scanHistory[1].id;
+    selB.value = scanHistory[0].id;
+  }
 }
 
 document.getElementById('runCompareBtn').addEventListener('click', () => {
@@ -1357,7 +1523,7 @@ document.getElementById('runCompareBtn').addEventListener('click', () => {
 ══════════════════════════════════════════════════════════════ */
 function renderLearning() {
   document.getElementById('learningHub').innerHTML = LESSONS.map((lesson,idx) => `
-    <div class="lesson-card" role="article">
+    <div class="lesson-card stagger-item" style="--stagger-i:${idx}" role="article">
       <div class="lesson-header" tabindex="0" role="button" aria-expanded="false">
         <div class="lesson-icon" style="background:${lesson.bg};color:${lesson.color}">
           <i class="${lesson.icon}" aria-hidden="true"></i>
@@ -1365,7 +1531,7 @@ function renderLearning() {
         <span class="lesson-title">${esc(lesson.title)}</span>
         <i class="bi bi-chevron-down issue-chevron" aria-hidden="true"></i>
       </div>
-      <div class="lesson-body">${lesson.content}</div>
+      <div class="lesson-body"><div class="accordion-inner">${lesson.content}</div></div>
     </div>
   `).join('');
 
@@ -1387,14 +1553,23 @@ function updateLastScanHome(scan) {
 }
 
 document.getElementById('viewLastScanBtn').addEventListener('click', () => {
-  if (currentScan) { navigateTo('scan'); renderScanResults(currentScan); }
-  else navigateTo('scan');
+  const scan = currentScan || scanHistory[0];
+  if (scan) {
+    currentScan = scan;
+    allIssues = scan.issues || [];
+    navigateTo('scan');
+    document.getElementById('scanUrlInput').value = scan.url;
+    renderScanResults(scan);
+  } else {
+    navigateTo('scan');
+  }
 });
 document.getElementById('rescanBtn').addEventListener('click', () => {
-  if (!currentScan) return;
+  const url = currentScan?.url || scanHistory[0]?.url;
+  if (!url) return;
   navigateTo('scan');
-  document.getElementById('scanUrlInput').value = currentScan.url;
-  doScan(currentScan.url, 'scanBtn', 'scanUrlErr', 'scanLoading', ['ls1','ls2','ls3','ls4']);
+  document.getElementById('scanUrlInput').value = url;
+  doScan(url, 'scanBtn', 'scanUrlErr', 'scanLoading', ['ls1','ls2','ls3','ls4']);
 });
 
 /* ══════════════════════════════════════════════════════════════
