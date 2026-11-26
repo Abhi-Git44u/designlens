@@ -18,8 +18,14 @@ app.use(helmet({
   contentSecurityPolicy: false  // Allow inline scripts on our own pages
 }));
 
+// In production (Render), the frontend is served from the same origin, so CORS is open.
+// In development, only allow localhost.
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? true  // allow same-origin requests from Render's CDN
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
