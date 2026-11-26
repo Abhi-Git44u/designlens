@@ -90,6 +90,10 @@
     </button>
     <div class="topbar-title" id="topbarTitle">Dashboard</div>
     <div class="topbar-actions">
+      <button class="btn btn-sm btn-outline-secondary motion-toggle-btn" id="motionToggle" type="button" aria-pressed="false" aria-label="Toggle reduced motion">
+        <i class="bi bi-stars" id="motionIcon" aria-hidden="true"></i>
+        <span class="d-none d-sm-inline" id="motionLabel">Motion: On</span>
+      </button>
       <button class="btn btn-sm btn-primary" data-page="scan" aria-label="Start a new scan">
         <i class="bi bi-search me-1" aria-hidden="true"></i>New Scan
       </button>
@@ -147,28 +151,28 @@
       <!-- Feature Cards -->
       <div class="row g-3 mt-2">
         <div class="col-sm-6 col-xl-3">
-          <div class="feature-card" role="article">
+          <div class="feature-card" role="button" tabindex="0" data-page="issues" aria-label="Open Issue Explorer">
             <div class="feature-icon bg-critical"><i class="bi bi-bug-fill" aria-hidden="true"></i></div>
             <h3 class="feature-title">Issue Explorer</h3>
             <p class="feature-desc">Detailed breakdown of every axe-core violation with WCAG tags.</p>
           </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-          <div class="feature-card" role="article">
+          <div class="feature-card" role="button" tabindex="0" data-page="fix" aria-label="Open Smart Fix Assistant">
             <div class="feature-icon bg-primary"><i class="bi bi-tools" aria-hidden="true"></i></div>
             <h3 class="feature-title">Smart Fix Assistant</h3>
             <p class="feature-desc">Before/after code examples and copy-ready fix snippets.</p>
           </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-          <div class="feature-card" role="article">
+          <div class="feature-card" role="button" tabindex="0" data-page="contrast" aria-label="Open Colour Contrast Checker">
             <div class="feature-icon bg-success"><i class="bi bi-palette-fill" aria-hidden="true"></i></div>
             <h3 class="feature-title">Colour Contrast</h3>
             <p class="feature-desc">Live AA/AAA contrast ratio checker with colour pickers.</p>
           </div>
         </div>
         <div class="col-sm-6 col-xl-3">
-          <div class="feature-card" role="article">
+          <div class="feature-card" role="button" tabindex="0" data-page="history" aria-label="Open Scan History">
             <div class="feature-icon bg-warning"><i class="bi bi-clock-history" aria-hidden="true"></i></div>
             <h3 class="feature-title">Scan History</h3>
             <p class="feature-desc">Compare scans over time and track your improvements.</p>
@@ -196,7 +200,7 @@
       </div>
 
       <!-- How it Works -->
-      <div class="how-it-works mt-4">
+      <div class="how-it-works mt-4 reveal-on-scroll">
         <h2 class="section-title">How It Works</h2>
         <div class="row g-3">
           <div class="col-sm-6 col-lg-3">
@@ -231,7 +235,7 @@
       </div>
 
       <!-- Limitation disclaimer -->
-      <div class="limitation-banner mt-3" role="note">
+      <div class="limitation-banner mt-3 reveal-on-scroll" role="note">
         <i class="bi bi-info-circle-fill me-2" aria-hidden="true"></i>
         <strong>Limitation:</strong> Automated testing identifies <em>common</em> accessibility issues but cannot
         guarantee full WCAG compliance or certify a website as accessible. Manual testing by people with disabilities
@@ -269,23 +273,30 @@
       </div>
 
       <!-- Loading -->
-      <div id="scanLoading" class="loading-card d-none" aria-live="polite" aria-label="Scan in progress">
+      <div id="scanLoading" class="loading-card d-none" aria-live="polite" aria-label="Scan in progress" tabindex="-1">
         <div class="loading-spinner" aria-hidden="true">
           <div class="spinner-ring"></div>
+          <div class="scan-beam"></div>
           <span class="spinner-icon"><i class="bi bi-eye"></i></span>
         </div>
         <h2 class="loading-title mt-3">Scanning Website…</h2>
         <p class="loading-url" id="scanLoadingUrl"></p>
+        <div class="scan-progress-track mt-3" aria-hidden="true">
+          <div class="scan-progress-fill" id="scanProgressFill"></div>
+        </div>
         <div class="loading-steps mt-3">
           <div class="step active" id="ls1"><i class="bi bi-cloud-download me-1" aria-hidden="true"></i>Fetching page</div>
           <div class="step" id="ls2"><i class="bi bi-code-slash me-1" aria-hidden="true"></i>Parsing HTML</div>
           <div class="step" id="ls3"><i class="bi bi-search me-1" aria-hidden="true"></i>Running axe-core</div>
           <div class="step" id="ls4"><i class="bi bi-bar-chart me-1" aria-hidden="true"></i>Building report</div>
         </div>
+        <button id="stopScanBtn" class="stop-scan-btn d-none mt-4" type="button" aria-label="Stop scan">
+          <i class="bi bi-stop-circle me-1" aria-hidden="true"></i>Stop Scan
+        </button>
       </div>
 
       <!-- Results Dashboard -->
-      <div id="scanResults" class="d-none mt-3">
+      <div id="scanResults" class="d-none mt-3" tabindex="-1">
         <!-- Score + header -->
         <div class="results-topbar d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
           <div>
@@ -685,21 +696,21 @@
     </div>
 
   </main><!-- /main -->
-</div><!-- /main-wrapper -->
 
-<!-- ══════ FOOTER ══════ -->
-<footer class="site-footer" role="contentinfo">
-  <div class="container text-center">
-    <p class="mb-1">
-      <i class="bi bi-eye-fill me-1" aria-hidden="true"></i>
-      <strong>DesignLens</strong> – Website Accessibility Analyzer
-    </p>
-    <p class="footer-sub mb-0">
-      Built with <span aria-label="love">♥</span> using Node.js, Express &amp; axe-core ·
-      Follows WCAG 2.1 AA guidelines · Results are not a certification
-    </p>
-  </div>
-</footer>
+  <!-- ══════ FOOTER ══════ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container text-center">
+      <p class="mb-1">
+        <i class="bi bi-eye-fill me-1" aria-hidden="true"></i>
+        <strong>DesignLens</strong> – Website Accessibility Analyzer
+      </p>
+      <p class="footer-sub mb-0">
+        Built with <span aria-label="love">♥</span> using Node.js, Express &amp; axe-core ·
+        Follows WCAG 2.1 AA guidelines · Results are not a certification
+      </p>
+    </div>
+  </footer>
+</div><!-- /main-wrapper -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/app.js"></script>

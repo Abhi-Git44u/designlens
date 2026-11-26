@@ -450,6 +450,7 @@ function animateCount(el, target, duration = 550) {
    SCAN ENGINE
 ══════════════════════════════════════════════════════════════ */
 let stepTimerId = null;
+let activeScanController = null;  // AbortController for the in-flight scan
 
 function startLoadingSteps(ids) {
   const steps = ids.map(id => document.getElementById(id)).filter(Boolean);
@@ -502,19 +503,44 @@ async function doScan(url, btnId, errId, loadingId, stepIds) {
   try { parsed = new URL(url); } catch { showFormError(errId,'Invalid URL — include https://'); return; }
   if (!['http:','https:'].includes(parsed.protocol)) { showFormError(errId,'Only http:// and https:// are supported.'); return; }
 
+  // Cancel any in-flight scan before starting a new one
+  if (activeScanController) activeScanController.abort();
+  activeScanController = new AbortController();
+  const signal = activeScanController.signal;
+
   const btn = document.getElementById(btnId);
   setBtn(btn, true);
+
+  const stopBtn = document.getElementById('stopScanBtn');
+
   if (loadingId) {
-    document.getElementById(loadingId).classList.remove('d-none');
+    const loadingEl = document.getElementById(loadingId);
+    loadingEl.classList.remove('d-none');
     const lurl = document.getElementById('scanLoadingUrl');
     if (lurl) lurl.textContent = url;
+    // Show & wire up stop button
+    if (stopBtn) {
+      stopBtn.classList.remove('d-none', 'stop-scan-btn--used');
+      stopBtn.onclick = () => {
+        activeScanController.abort();
+      };
+    }
   }
   if (stepIds) startLoadingSteps(stepIds);
+
+  function cleanupScan() {
+    if (loadingId) document.getElementById(loadingId).classList.add('d-none');
+    if (stepIds) stopLoadingSteps(stepIds);
+    setBtn(btn, false);
+    if (stopBtn) stopBtn.classList.add('d-none');
+    activeScanController = null;
+  }
 
   try {
     const res = await fetch('/api/analyze', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({url})
+      body: JSON.stringify({url}),
+      signal
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error||'Scan failed');
@@ -522,18 +548,19 @@ async function doScan(url, btnId, errId, loadingId, stepIds) {
     allIssues   = data.issues||[];
     pushHistory(data);
 
-    if (loadingId) document.getElementById(loadingId).classList.add('d-none');
-    if (stepIds) stopLoadingSteps(stepIds);
-    setBtn(btn, false);
+    cleanupScan();
 
     // Always show results on scan page
     navigateTo('scan');
     renderScanResults(data);
   } catch(err) {
-    if (loadingId) document.getElementById(loadingId).classList.add('d-none');
-    if (stepIds) stopLoadingSteps(stepIds);
-    setBtn(btn, false);
-    showFormError(errId, err.message||'Scan failed. Please try again.');
+    cleanupScan();
+    if (err.name === 'AbortError') {
+      // User cancelled — show a neutral message, don't treat as error
+      showFormError(errId, 'Scan cancelled.');
+    } else {
+      showFormError(errId, err.message||'Scan failed. Please try again.');
+    }
   }
 }
 
